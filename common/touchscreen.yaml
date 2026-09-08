@@ -1,0 +1,23 @@
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    i2c_id: bus_a
+    reset_pin: 40
+    interrupt_pin: 42
+    update_interval: 50ms
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+    # Enabled Touch Logger here
+    on_touch:
+      - logger.log:
+          format: "Touch at (%d, %d)"
+          args: [touch.x, touch.y]
+      - lambda: |-
+          ESP_LOGI("cal", "x=%d, y=%d, x_raw=%d, y_raw=%d",
+          touch.x,
+          touch.y,
+          touch.x_raw,
+          touch.y_raw
+          );

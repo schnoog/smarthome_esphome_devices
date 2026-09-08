@@ -1,0 +1,59 @@
+lvgl:
+  theme:
+    dark_mode: false
+  buffer_size: 50%
+  byte_order: little_endian
+  color_depth: 16
+  log_level: INFO
+  bg_color: 0xFFFFFF
+  text_font: montserrat_26
+  widgets:  
+    - image:
+        id: lvgl_temp
+        src: small_temp
+        x: 250
+        y: 250
+    - image:
+        id: lvgl_hum
+        src: small_hum
+        x: 500
+        y: 250
+    - label:
+        id: label_temp
+        x: 190
+        y: 350
+        text: "Temp: --°C"
+    - label:
+        id: label_hum
+        x: 450
+        y: 350
+        text: "Humi: --%"
+
+
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          char temp_str[20];
+          char hum_str[20];
+          snprintf(temp_str, sizeof(temp_str), "Temp: %.1f°C", id(s0Temperatur).state);
+          snprintf(hum_str, sizeof(hum_str), "Humi: %.1f%%", id(s0_Luftfeuchtigkeit).state);
+          lv_label_set_text(id(label_temp), temp_str);
+          lv_label_set_text(id(label_hum), hum_str);
+ 
+image:
+  - file: "small_temp.png"
+    id: small_temp
+    resize: 200x200
+    type: RGB565
+    byte_order: little_endian
+  - file: "small_hum.png"
+    id: small_hum
+    resize: 200x200
+    type: RGB565
+    byte_order: little_endian
+  - file: "small_temp.png"
+    id: tiny_temp
+    resize: 100x100
+    type: RGB565
+    byte_order: little_endian

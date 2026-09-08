@@ -1,0 +1,755 @@
+font:
+  - file: "gfonts://Outfit"
+    id: outfit_28
+    size: 28
+    glyphs:
+      - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+      - "äöüÄÖÜß°"
+
+  - file: "gfonts://Outfit"
+    id: outfit_44
+    size: 44
+    glyphs:
+      - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+      - "äöüÄÖÜß°"      
+
+  - file: "gfonts://Outfit"
+    id: outfit_36
+    size: 36
+    glyphs:
+      - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+      - "äöüÄÖÜß°"
+
+
+# >>> LVGL Designer - generated from the canvas. >>>
+# This block is regenerated from the canvas — edits here are not preserved.
+lvgl:
+  byte_order: little_endian
+  color_depth: 16
+  pages:
+    - id: canvas_1
+      bg_color: 0x111827
+      pad_all: 0
+      widgets:
+        - obj: #Time
+            id: widget_Time
+            x: 755
+            y: 30
+            width: 255
+            height: 165
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x8E9FB8
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblTime
+                  x: 10
+                  y: 5
+                  width: 215
+                  height: 70
+                  text: !lambda |-
+                    if (!id(esptime).now().is_valid()) {
+                      return std::string("--:--");
+                    }
+
+                    char buf[6];
+                    snprintf(buf, sizeof(buf), "%02d:%02d",
+                            id(esptime).now().hour,
+                            id(esptime).now().minute);
+
+                    return std::string(buf);
+                  text_color: 0xF1F5F9
+                  text_align: CENTER
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+              - label:
+                  id: lblDate
+                  x: 10
+                  y: 85
+                  width: 215
+                  height: 70
+                  text: !lambda |-
+                    if (!id(esptime).now().is_valid()) {
+                      return std::string("--.--");
+                    }
+
+                    char buf[7];
+                    snprintf(buf, sizeof(buf), "%02d.%02d.",
+                            id(esptime).now().day_of_month,
+                            id(esptime).now().month);
+
+                    return std::string(buf);
+                  text_color: 0xF1F5F9
+                  text_align: CENTER
+                  long_mode: CLIP
+                  text_font: outfit_28
+
+
+
+        - obj: #Temp1
+            id: widget_Temp1
+            x: 65
+            y: 55
+            width: 185
+            height: 85
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x10B981
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblTemp1
+                  x: 15
+                  y: 6
+                  width: 105
+                  height: 50
+                  text:
+                    format: "%.1f"
+                    args:
+                      - id(s0Temperatur).state
+                  text_color: 0xF1F5F9
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+              - label:
+                  id: widget_1786542405234_dyq87gixy
+                  x: 117
+                  y: 6
+                  width: 40
+                  height: 50
+                  text: "°C"
+                  text_color: 0x8E9FB8
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+        - obj: #Temp2
+            id: widget_Temp2
+            x: 65
+            y: 178
+            width: 185
+            height: 85
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x10B981
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblTemp2
+                  x: 15
+                  y: 6
+                  width: 105
+                  height: 50
+                  text:
+                    format: "%.1f"
+                    args:
+                      - id(s1Temperatur).state
+                  text_color: 0xF1F5F9
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+              - label:
+                  id: widget_1786542742540_36rm8icuo
+                  x: 117
+                  y: 6
+                  width: 40
+                  height: 50
+                  text: "°C"
+                  text_color: 0x8E9FB8
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+        - obj: #Temp3
+            id: widget_Temp3
+            x: 300
+            y: 178
+            width: 185
+            height: 85
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x10B981
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblTemp3
+                  x: 15
+                  y: 6
+                  width: 105
+                  height: 50
+                  text:
+                    format: "%.1f"
+                    args:
+                      - id(s2Temperatur).state
+                  text_color: 0xF1F5F9
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+              - label:
+                  id: widget_1786542758412_261wbdjkz
+                  x: 117
+                  y: 6
+                  width: 40
+                  height: 50
+                  text: "°C"
+                  text_color: 0x8E9FB8
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+        - obj: #Temp4
+            id: widget_Temp4
+            x: 65
+            y: 303
+            width: 185
+            height: 85
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x10B981
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblTemp4
+                  x: 15
+                  y: 6
+                  width: 105
+                  height: 50
+                  text:
+                    format: "%.1f"
+                    args:
+                      - id(s3Temperatur).state
+                  text_color: 0xF1F5F9
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+              - label:
+                  id: widget_1786542785268_6sjl5pqdm
+                  x: 117
+                  y: 6
+                  width: 40
+                  height: 50
+                  text: "°C"
+                  text_color: 0x8E9FB8
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+        - obj: #Temp5
+            id: widget_Temp5
+            x: 300
+            y: 303
+            width: 185
+            height: 85
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x10B981
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblTemp5
+                  x: 15
+                  y: 6
+                  width: 105
+                  height: 50
+                  text:
+                    format: "%.1f"
+                    args:
+                      - id(s4Temperatur).state
+                  text_color: 0xF1F5F9
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+              - label:
+                  id: widget_1786542794258_gpcenevn9
+                  x: 117
+                  y: 6
+                  width: 40
+                  height: 50
+                  text: "°C"
+                  text_color: 0x8E9FB8
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+
+        - obj: #TempExt1
+            id: widget_Ext
+            x: 65
+            y: 428
+            width: 185
+            height: 85
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x10B981
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblTempExt1
+                  x: 15
+                  y: 6
+                  width: 105
+                  height: 50
+                  text:
+                    format: "%.1f"
+                    args:
+                      - id(s1ExtTemperatur).state
+                  text_color: 0xF1F5F9
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+              - label:
+                  id: widget_1286542785268_6sjl5pqdm
+                  x: 117
+                  y: 6
+                  width: 40
+                  height: 50
+                  text: "°C"
+                  text_color: 0x8E9FB8
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+
+
+        - obj: #Hum
+            id: widget_Hum
+            x: 300
+            y: 55
+            width: 185
+            height: 85
+            bg_color: 0x070E1B
+            bg_opa: 95%
+            border_width: 8
+            border_color: 0x162038
+            border_opa: 20%
+            radius: 16
+            shadow_width: 0
+            shadow_color: 0x10B981
+            shadow_opa: 0%
+            scrollbar_mode: "OFF"
+            pad_all: 0
+            widgets:
+              - label:
+                  id: lblHum
+                  x: 15
+                  y: 6
+                  width: 105
+                  height: 50
+                  text:
+                    format: "%.1f"
+                    args:
+                      - id(s0_Luftfeuchtigkeit).state
+                  text_color: 0xF1F5F9
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+              - label:
+                  id: widget_1786542837271_5qqu19mtm
+                  x: 117
+                  y: 6
+                  width: 40
+                  height: 50
+                  text: "%"
+                  text_color: 0x8E9FB8
+                  text_align: LEFT
+                  long_mode: CLIP
+                  text_font: outfit_44
+
+        - label:
+            id: lblS1
+            x: 80
+            y: 10
+            width: 215
+            height: 35
+            text: "Display"
+            text_color: 0xFFFFFF
+            text_font: outfit_28
+
+        - label:
+            id: lblS2
+            x: 80
+            y: 135
+            width: 210
+            height: 35
+            text: "Hochbeet"
+            text_color: 0xFFFFFF
+            text_font: outfit_28
+
+        - label:
+            id: lblS3
+            x: 315
+            y: 135
+            width: 205
+            height: 35
+            text: "Vorne"
+            text_color: 0xFFFFFF
+            text_font: outfit_28
+
+        - label:
+            id: lblS4
+            x: 80
+            y: 260
+            width: 235
+            height: 35
+            text: "Wohnzimmer"
+            text_color: 0xFFFFFF
+            text_font: outfit_28
+
+        - label:
+            id: lblS5
+            x: 315
+            y: 260
+            width: 215
+            height: 35
+            text: "Küche"
+            text_color: 0xFFFFFF
+            text_font: outfit_28
+
+
+        - label:
+            id: lblS1E
+            x: 80
+            y: 395
+            width: 210
+            height: 35
+            text: "Ter. Oben"
+            text_color: 0xFFFFFF
+            text_font: outfit_28            
+# <<< end LVGL Designer block <<<
+
+
+
+
+
+
+
+
+interval:
+
+  - interval: 1min
+    then:
+      - lambda: |-
+          auto now = id(esptime).now();
+
+          if (!now.is_valid()) {
+            return;
+          }
+
+          int minutes = now.hour * 60 + now.minute;
+
+          if (minutes >= 22 * 60 || minutes < 6 * 60) {
+            // 22:00 - 06:00 -> 10 %
+            auto call = id(back_light).turn_on();
+            call.set_brightness(0.10);
+            call.perform();
+
+          } else if (minutes < 8 * 60) {
+            // 06:00 - 08:00 -> 70 %
+            auto call = id(back_light).turn_on();
+            call.set_brightness(0.70);
+            call.perform();
+
+          } else if (minutes < 20 * 60) {
+            // 08:00 - 20:00 -> 100 %
+            auto call = id(back_light).turn_on();
+            call.set_brightness(1.0);
+            call.perform();
+
+          } else {
+            // 20:00 - 22:00 -> 50 %
+            auto call = id(back_light).turn_on();
+            call.set_brightness(0.50);
+            call.perform();
+          }
+
+  - interval: 2s
+    then:
+      - lvgl.widget.refresh: lblTemp1
+      - lvgl.widget.refresh: lblHum
+      - lvgl.widget.refresh: lblTemp2
+      - lvgl.widget.refresh: lblTemp3
+      - lvgl.widget.refresh: lblTemp4
+      - lvgl.widget.refresh: lblTemp5
+      - lvgl.widget.refresh: lblTime  
+      - lvgl.widget.refresh: lblDate
+      - lvgl.widget.refresh: lblTempExt1    
+
+  - interval: 30s
+    then:
+      - lambda: |-
+
+          auto now = id(esptime).now();
+
+          int hh = 0;
+          int mm = 0;
+          int diff = 9999;
+          int now_min = 0;
+          int msg_min = 0;
+          uint32_t color;
+          bool valid;
+
+          valid = sscanf(
+              id(s0Update).state.c_str(),
+              "%d:%d",
+              &hh,
+              &mm
+          ) == 2;
+
+          diff = 9999;
+
+          if (valid) {
+            now_min = now.hour * 60 + now.minute;
+            msg_min = hh * 60 + mm;
+
+            diff = now_min - msg_min;
+
+            if (diff < 0)
+              diff += 24 * 60;
+          }
+
+          if (!valid) {
+            color = 0xEF4444;       // rot
+          } else if (diff < 11) {
+            color = 0x10B981;       // grün
+          } else if (diff < 31) {
+            color = 0xF59E0B;       // orange
+          } else {
+            color = 0xEF4444;       // rot
+          }
+
+          lv_obj_set_style_border_color(
+              id(widget_Temp1),
+              lv_color_hex(color),
+              LV_PART_MAIN
+          );
+
+          lv_obj_set_style_border_color(
+              id(widget_Hum),
+              lv_color_hex(color),
+              LV_PART_MAIN
+          );
+
+
+
+          valid = sscanf(
+              id(s1Update).state.c_str(),
+              "%d:%d",
+              &hh,
+              &mm
+          ) == 2;
+
+          diff = 9999;
+
+          if (valid) {
+            now_min = now.hour * 60 + now.minute;
+            msg_min = hh * 60 + mm;
+
+            diff = now_min - msg_min;
+
+            if (diff < 0)
+              diff += 24 * 60;
+          }
+
+          if (!valid) {
+            color = 0xEF4444;       // rot
+          } else if (diff < 11) {
+            color = 0x10B981;       // grün
+          } else if (diff < 31) {
+            color = 0xF59E0B;       // orange
+          } else {
+            color = 0xEF4444;       // rot
+          }
+
+          lv_obj_set_style_border_color(
+              id(widget_Temp2),
+              lv_color_hex(color),
+              LV_PART_MAIN
+          );
+
+
+          valid = sscanf(
+              id(s2Update).state.c_str(),
+              "%d:%d",
+              &hh,
+              &mm
+          ) == 2;
+
+          diff = 9999;
+
+          if (valid) {
+            now_min = now.hour * 60 + now.minute;
+            msg_min = hh * 60 + mm;
+
+            diff = now_min - msg_min;
+
+            if (diff < 0)
+              diff += 24 * 60;
+          }
+
+          if (!valid) {
+            color = 0xEF4444;       // rot
+          } else if (diff < 11) {
+            color = 0x10B981;       // grün
+          } else if (diff < 31) {
+            color = 0xF59E0B;       // orange
+          } else {
+            color = 0xEF4444;       // rot
+          }
+
+          lv_obj_set_style_border_color(
+              id(widget_Temp3),
+              lv_color_hex(color),
+              LV_PART_MAIN
+          );
+
+          valid = sscanf(
+              id(s3Update).state.c_str(),
+              "%d:%d",
+              &hh,
+              &mm
+          ) == 2;
+
+          diff = 9999;
+
+          if (valid) {
+            now_min = now.hour * 60 + now.minute;
+            msg_min = hh * 60 + mm;
+
+            diff = now_min - msg_min;
+
+            if (diff < 0)
+              diff += 24 * 60;
+          }
+
+          if (!valid) {
+            color = 0xEF4444;       // rot
+          } else if (diff < 11) {
+            color = 0x10B981;       // grün
+          } else if (diff < 31) {
+            color = 0xF59E0B;       // orange
+          } else {
+            color = 0xEF4444;       // rot
+          }
+
+          lv_obj_set_style_border_color(
+              id(widget_Temp4),
+              lv_color_hex(color),
+              LV_PART_MAIN
+          );
+
+          valid = sscanf(
+              id(s4Update).state.c_str(),
+              "%d:%d",
+              &hh,
+              &mm
+          ) == 2;
+
+          diff = 9999;
+
+          if (valid) {
+            now_min = now.hour * 60 + now.minute;
+            msg_min = hh * 60 + mm;
+
+            diff = now_min - msg_min;
+
+            if (diff < 0)
+              diff += 24 * 60;
+          }
+
+          if (!valid) {
+            color = 0xEF4444;       // rot
+          } else if (diff < 11) {
+            color = 0x10B981;       // grün
+          } else if (diff < 31) {
+            color = 0xF59E0B;       // orange
+          } else {
+            color = 0xEF4444;       // rot
+          }
+
+          lv_obj_set_style_border_color(
+              id(widget_Temp5),
+              lv_color_hex(color),
+              LV_PART_MAIN
+          );
+
+
+
+
+
+
+
+
+
+#interval:
+#  - interval: 1s
+#    then:
+#      - lambda: |-
+#          char temp_str[20];
+#          char hum_str[20];
+#          snprintf(temp_str, sizeof(temp_str), "Temp: %.1f°C", id(s0Temperatur).state);
+#          snprintf(hum_str, sizeof(hum_str), "Humi: %.1f%%", id(s0_Luftfeuchtigkeit).state);
+#          lv_label_set_text(id(lblTemp1), temp_str);
+#          lv_label_set_text(id(lblHum), hum_str);
+# 
+#          snprintf(temp_str, sizeof(temp_str), "Temp: %.1f°C", id(s1Temperatur).state);
+#          lv_label_set_text(id(lblTemp2), temp_str);
+#
+#          snprintf(temp_str, sizeof(temp_str), "Temp: %.1f°C", id(s2Temperatur).state);
+#          lv_label_set_text(id(lblTemp3), temp_str);
+#
+#          snprintf(temp_str, sizeof(temp_str), "Temp: %.1f°C", id(s3Temperatur).state);
+#          lv_label_set_text(id(lblTemp4), temp_str);
+#
+#          snprintf(temp_str, sizeof(temp_str), "Temp: %.1f°C", id(s4Temperatur).state);
+#          lv_label_set_text(id(lblTemp5), temp_str);

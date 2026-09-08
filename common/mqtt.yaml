@@ -1,0 +1,74 @@
+mqtt:
+  id: bigdisplay
+  broker: !secret mqtt_broker
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: true
+  discovery_retain: true
+  discovery_unique_id_generator: mac
+  discovery_object_id_generator: device_name
+  birth_message:
+  will_message:
+  shutdown_message:
+
+
+sensor:
+  - platform: mqtt_subscribe
+    id: s0_Luftfeuchtigkeit
+    topic: cyd1/sensor/luftfeuchtigkeit/state
+  - platform: mqtt_subscribe
+    id: s0Luftdruck
+    topic: cyd1/sensor/luftdruck/state
+  - platform: mqtt_subscribe
+    id: s0Temperatur
+    topic: cyd1/sensor/temperatur/state
+
+  - platform: mqtt_subscribe
+    id: s1Luftdruck
+    topic: sensor-bmp280-1/sensor/bmp280_1_pressure/state
+  - platform: mqtt_subscribe
+    id: s1Temperatur
+    topic: sensor-bmp280-1/sensor/bmp280_1_temperature/state
+
+
+  - platform: mqtt_subscribe
+    id: s2Luftdruck
+    topic: sensor-bmp280-2/sensor/bmp280_2_pressure/state
+  - platform: mqtt_subscribe
+    id: s2Temperatur
+    topic: sensor-bmp280-2/sensor/bmp280_2_temperature/state
+
+  - platform: mqtt_subscribe
+    id: s3Luftdruck
+    topic: sensor-bmp280-3/sensor/bmp280_3_pressure/state
+  - platform: mqtt_subscribe
+    id: s3Temperatur
+    topic: sensor-bmp280-3/sensor/bmp280_3_temperature/state
+
+  - platform: mqtt_subscribe
+    id: s4Luftdruck
+    topic: sensor-bmp280-4/sensor/bmp280_4_pressure/state
+  - platform: mqtt_subscribe
+    id: s4Temperatur
+    topic: sensor-bmp280-4/sensor/bmp280_4_temperature/state   
+  - platform: mqtt_subscribe
+    id: s1ExtTemperatur
+    topic: sensor-bmp280-1/sensor/ext_temperature/state   
+
+
+text_sensor:
+  - platform: mqtt_subscribe
+    id: s0Update
+    topic: updated/cyd1/sensor/temperatur/state
+  - platform: mqtt_subscribe
+    id: s1Update
+    topic: updated/sensor-bmp280-1/sensor/bmp280_1_temperature/state  
+  - platform: mqtt_subscribe
+    id: s2Update
+    topic: updated/sensor-bmp280-2/sensor/bmp280_2_temperature/state
+  - platform: mqtt_subscribe
+    id: s3Update
+    topic: updated/sensor-bmp280-3/sensor/bmp280_3_temperature/state
+  - platform: mqtt_subscribe
+    id: s4Update
+    topic: updated/sensor-bmp280-4/sensor/bmp280_4_temperature/state

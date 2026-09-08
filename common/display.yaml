@@ -1,0 +1,39 @@
+
+
+display:
+  - platform: mipi_dsi
+    id: my_display
+    model: WAVESHARE-ESP32-P4-WIFI6-TOUCH-LCD-7B
+    reset_pin:
+      number: 41
+    update_interval: never
+    auto_clear_enabled: false
+    dimensions:
+      width: 1024
+      height: 600
+    color_order: RGB
+    color_depth: 16
+
+
+
+
+
+
+
+
+output:
+  - platform: ledc
+    pin: GPIO31
+    id: backlight_pwm
+  - platform: gpio
+    id: power_light
+    pin: GPIO29
+    inverted: true
+    
+light:
+  - platform: monochromatic
+    name: "Backlight"
+    output: backlight_pwm
+    id: back_light
+    restore_mode: ALWAYS_ON
+    internal: true
