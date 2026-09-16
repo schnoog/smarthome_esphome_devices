@@ -3,14 +3,12 @@ import esphome.config_validation as cv
 from esphome.components import binary_sensor
 from esphome.const import DEVICE_CLASS_MOTION
 
-from . import CameraMotion, camera_motion_ns
+from . import CameraMotion
 
 CONF_CAMERA_MOTION_ID = "camera_motion_id"
 
-CameraMotionBinarySensor = camera_motion_ns.class_(
-    "CameraMotionBinarySensor", binary_sensor.BinarySensor
-)
-
+# Kein eigener C++-Subtyp noetig - CameraMotion spricht den Sensor nur ueber
+# publish_state() an, dafuer reicht die normale binary_sensor::BinarySensor-Basis.
 CONFIG_SCHEMA = binary_sensor.binary_sensor_schema(
     device_class=DEVICE_CLASS_MOTION,
 ).extend(

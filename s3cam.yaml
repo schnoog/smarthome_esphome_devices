@@ -183,7 +183,8 @@ camera_motion:
   block_size: 16          # Groesse der Vergleichsbloecke in Pixeln
   block_threshold: 30     #def:30 # ab welcher Pixel-Aenderung ein Block als "veraendert" zaehlt
   motion_threshold: 40    #def:20 # wie viele veraenderte Bloecke fuer "Bewegung" noetig sind
-  check_every_n_frames: 10 # nur jeden n-ten Frame analysieren (CPU sparen)
+  check_interval: 1s
+#  check_every_n_frames: 10 # nur jeden n-ten Frame analysieren (CPU sparen)
 
 
 

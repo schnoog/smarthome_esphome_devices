@@ -52,7 +52,7 @@ camera_motion:
   block_size: 16          # Groesse der Vergleichsbloecke in Pixeln
   block_threshold: 30     # ab welcher Pixel-Aenderung ein Block als "veraendert" zaehlt
   motion_threshold: 10    # wie viele veraenderte Bloecke fuer "Bewegung" noetig sind
-  check_every_n_frames: 3 # nur jeden n-ten Frame analysieren (CPU sparen)
+  check_interval: 1s      # Mindestabstand zwischen zwei analysierten Frames
 
 binary_sensor:
   - platform: camera_motion

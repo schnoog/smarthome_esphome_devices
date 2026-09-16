@@ -13,7 +13,7 @@ CONF_CAMERA_ID = "camera_id"
 CONF_BLOCK_SIZE = "block_size"
 CONF_BLOCK_THRESHOLD = "block_threshold"
 CONF_MOTION_THRESHOLD = "motion_threshold"
-CONF_CHECK_EVERY_N_FRAMES = "check_every_n_frames"
+CONF_CHECK_INTERVAL = "check_interval"
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -24,9 +24,10 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_MOTION_THRESHOLD, default=10): cv.int_range(
             min=1, max=10000
         ),
-        cv.Optional(CONF_CHECK_EVERY_N_FRAMES, default=3): cv.int_range(
-            min=1, max=100
-        ),
+        # Mindestabstand zwischen zwei analysierten Frames (statt einer festen
+        # "jeden n-ten Frame"-Zaehlung). Frames, die in kuerzerem Abstand
+        # ankommen, werden einfach uebersprungen.
+        cv.Optional(CONF_CHECK_INTERVAL, default="1s"): cv.positive_time_period_milliseconds,
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -40,4 +41,4 @@ async def to_code(config):
     cg.add(var.set_block_size(config[CONF_BLOCK_SIZE]))
     cg.add(var.set_block_threshold(config[CONF_BLOCK_THRESHOLD]))
     cg.add(var.set_motion_threshold(config[CONF_MOTION_THRESHOLD]))
-    cg.add(var.set_check_every_n_frames(config[CONF_CHECK_EVERY_N_FRAMES]))
+    cg.add(var.set_check_interval(config[CONF_CHECK_INTERVAL]))

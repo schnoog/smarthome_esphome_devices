@@ -33,7 +33,7 @@ class CameraMotion : public Component, public esphome::camera::CameraListener {
   void set_block_size(uint8_t size) { this->block_size_ = size; }
   void set_block_threshold(uint8_t threshold) { this->block_threshold_ = threshold; }
   void set_motion_threshold(uint16_t threshold) { this->motion_threshold_ = threshold; }
-  void set_check_every_n_frames(uint8_t n) { this->check_every_n_frames_ = n; }
+  void set_check_interval(uint32_t interval_ms) { this->check_interval_ms_ = interval_ms; }
 
   // esphome::camera::CameraListener - wird von ESP32Camera pro Frame aufgerufen.
   void on_camera_image(const std::shared_ptr<esphome::camera::CameraImage> &image) override;
@@ -54,9 +54,9 @@ class CameraMotion : public Component, public esphome::camera::CameraListener {
   uint8_t block_size_{16};
   uint8_t block_threshold_{30};
   uint16_t motion_threshold_{10};
-  uint8_t check_every_n_frames_{3};
+  uint32_t check_interval_ms_{1000};
 
-  uint32_t frame_counter_{0};
+  uint32_t last_check_ms_{0};
 
   uint8_t *rgb_buf_{nullptr};
   size_t rgb_buf_size_{0};

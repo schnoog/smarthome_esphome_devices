@@ -47,7 +47,7 @@ void CameraMotion::dump_config() {
   ESP_LOGCONFIG(TAG, "  Block Size: %u", this->block_size_);
   ESP_LOGCONFIG(TAG, "  Block Threshold: %u", this->block_threshold_);
   ESP_LOGCONFIG(TAG, "  Motion Threshold (Bloecke): %u", this->motion_threshold_);
-  ESP_LOGCONFIG(TAG, "  Analysiere jeden %u. Frame", this->check_every_n_frames_);
+  ESP_LOGCONFIG(TAG, "  Analyse-Intervall: %u ms", (unsigned) this->check_interval_ms_);
   ESP_LOGCONFIG(TAG, "  Freier PSRAM: %u Bytes", (unsigned) heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 }
 
@@ -74,10 +74,13 @@ bool CameraMotion::ensure_psram_buffer_(uint8_t **buf, size_t *current_size, siz
 }
 
 void CameraMotion::on_camera_image(const std::shared_ptr<esphome::camera::CameraImage> &image) {
-  // Nicht jedes Frame analysieren, um CPU-Last zu sparen.
-  this->frame_counter_++;
-  if (this->frame_counter_ % this->check_every_n_frames_ != 0)
+  // Nicht jedes Frame analysieren, sondern nur wenn genug Zeit seit der letzten
+  // Analyse vergangen ist - robust gegenueber stark schwankender Framerate
+  // (1fps im Leerlauf vs. bis zu 60fps waehrend eines aktiven Streams).
+  const uint32_t now = millis();
+  if (now - this->last_check_ms_ < this->check_interval_ms_)
     return;
+  this->last_check_ms_ = now;
 
   // Hinweis: frueher wurde hier nach was_requested_by(camera::IDLE) gefiltert.
   // Das verwirft aber JEDES Frame, sobald Bilder ausschliesslich ueber einen
