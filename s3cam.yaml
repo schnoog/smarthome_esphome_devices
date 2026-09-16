@@ -89,6 +89,11 @@ wifi:
 web_server:
   port: 80
 
+
+
+
+
+
 esp32_camera_web_server:
   - port: 8080
     mode: stream
@@ -120,13 +125,23 @@ binary_sensor:
 #            // some function to change the frame_size
 #            id(espcam_update) = true;        
        
-
+#i2c:
+#  sda: GPIO8
+#  scl: GPIO9
+#  scan: true
 
 sensor:
+# ltr308
+  - platform: ltr308
+    i2c_id: bus_a
+    name: "Umgebungslicht"
+    gain: 3x
+    resolution: 100ms
+    update_interval: 10s
 # will show the Uptime for the card if you're interested
-#  - platform: uptime
-#    name: 'Uptime'
-#    update_interval: 15s
+  - platform: uptime
+    name: 'Uptime'
+    update_interval: 15s
 # shows the Wifi signal strength in dB (decibels)
   - platform: wifi_signal
     name: "WiFi Signal"
@@ -186,7 +201,11 @@ camera_motion:
   check_interval: 1s
 #  check_every_n_frames: 10 # nur jeden n-ten Frame analysieren (CPU sparen)
 
-
+i2c:
+  id: bus_a
+  sda: GPIO8
+  scl: GPIO9
+  scan: true
 
 
 esp32_camera:
@@ -197,9 +216,10 @@ esp32_camera:
   external_clock:
     pin: GPIO5                        # XCLK pin
     frequency: 20MHz                  # Critical for camera timing
-  i2c_pins:
-    sda: GPIO8                        # I2C data
-    scl: GPIO9                        # I2C clock
+  i2c_id: bus_a 
+#  i2c_pins:
+#    sda: GPIO8                        # I2C data
+#    scl: GPIO9                        # I2C clock
   data_pins: [GPIO16, GPIO18, GPIO21, GPIO17, GPIO14, GPIO7, GPIO6, GPIO4]  # 8-bit data bus
   vsync_pin: GPIO1                    # Vertical sync
   href_pin: GPIO2                     # Horizontal reference
