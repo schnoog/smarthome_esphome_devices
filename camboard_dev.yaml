@@ -1,0 +1,550 @@
+substitutions:
+  name: esphome-cam
+  friendly_name: ESP32-S3-Cam
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: False # this appends to 'name' NOT 'friendly_name'
+  # arduino.memory.type was key to getting PSRAM working for this board
+  platformio_options:
+
+    build_flags: 
+      - "-DBOARD_HAS_PSRAM"
+    board_build.arduino.memory_type: qio_opi
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: fast_camera_loop
+
+  
+####    board_build.flash_mode: dio
+  # add code to program's loop() function
+  on_loop:
+    - lambda: |-
+        if(id(wifi_component).is_connected()) {
+          if (id(espcam_update)) {
+            id(espcam).update_camera_parameters();
+            if(id(debug)) { id(espcam).dump_config(); }
+            id(espcam_update) = false;
+          }
+        }
+  
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    version: recommended
+    sdkconfig_options:
+      CONFIG_ESP32_S3_BOX_BOARD: "y"
+   
+psram:
+  mode: octal
+  speed: 80MHz
+
+
+####-####external_components:
+####-####  - source:
+####-####      type: local
+####-####      path: external_components
+
+# Enable logging
+logger:
+
+
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+api:
+  encryption:
+    key: "CiYA/PPrO+exKqNUzuUdrzBO3ih9OVX66DbKyo9cB0g="
+  reboot_timeout: 0s                        # Prevent reboot if HA connection lost
+
+
+
+# Add the credentials to connect to your wifi network
+wifi:
+  id: wifi_component
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # If you change the name of the device or esphome is unable to resolve
+  #  its IP address, you can force connection to the actual IP address of
+  #  the card by specifying the address in 'use_address'
+  #use_address: 192.168.xxx.xxx
+  #
+  # Optional manual IP configuration instead of allowing it to be obtained using DHCP
+  #manual_ip:
+  #  static_ip: 192.168.xxx.xxx
+  #  gateway: 192.168.0.254
+  #  subnet: 255.255.255.0
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+#  ap:
+#    ssid: "Esphome-Web-1a2b3c"
+#    password: "{some passwd}"
+
+# this declaration enables the fallback AP declared under wifi section
+#  if the wifi cannot connect after 1 minute
+#captive_portal:
+
+# this enables the ESP Web Server for this device
+#web_server:
+
+web_server:
+  port: 80
+
+esp32_camera_web_server:
+#  - port: 8080
+#    mode: stream
+  - port: 8081
+    mode: snapshot
+
+binary_sensor:
+# shows the wifi status of the ESP32 Camera
+  - platform: status
+    name: "Status"
+####-####  - platform: camera_motion
+####-####    camera_motion_id: my_motion
+####-####    device_class: motion
+####-####    name: "Camera Motion"
+####-####    on_press:
+####-####      then:
+####-####        - logger.log: "Bewegung erkannt!"
+####-####        - lambda: |-
+####-####            id(espcam).set_frame_size((esphome::esp32_camera::ESP32CameraFrameSize)FRAMESIZE_SXGA);
+####-####            // some function to change the frame_size
+####-####            id(espcam_update) = true;        
+####-####    on_release:
+####-####        - logger.log: "Wieder ruhig"
+####-####        - delay: 10s
+####-####        - lambda: |-
+####-####            id(espcam).set_frame_size((esphome::esp32_camera::ESP32CameraFrameSize)FRAMESIZE_QVGA);
+####-####            // some function to change the frame_size
+####-####            id(espcam_update) = true;        
+
+
+sensor:
+# will show the Uptime for the card if you're interested
+#  - platform: uptime
+#    name: 'Uptime'
+#    update_interval: 15s
+# shows the Wifi signal strength in dB (decibels)
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+
+button:
+# enable a Factory Reset button if you want one
+  - platform: factory_reset
+    id: factory_reset_button
+    name: "Factory reset"
+# enable a reboot button
+  - platform: restart
+    name: "Restart"
+# enable a 'safe mode' reboot button
+  - platform: safe_mode
+    name: "Safe Mode"
+
+text_sensor:
+# Add text output for Wifi Info
+  - platform: wifi_info
+    ip_address:
+      name: "Wifi Info: IP Address"
+    ssid:
+      name: "Wifi Info: SSID"
+    bssid:
+      name: "Wifi Info: BSSID"
+#    mac_address:
+#      name: "Wifi Info: MAC Address"
+#    dns_address:
+#      name: "Wifi Info: DNS Address"
+
+globals:
+# the debug parameter determines whether a config dump is done after making changes
+# this is helpful when doing initial setup, but once everything is working, I turn it off
+  - id: debug
+    type: bool
+    initial_value: 'false'
+# value to track if camera parameters have been changed
+#   used to trigger the loop() code inserted in 'esphome' section above
+  - id: espcam_update
+    type: bool
+    initial_value: 'false'
+
+
+
+script:
+  - id: fast_camera_loopx
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return true;'
+          then:
+            # Tell the ESPHome engine to pull a fresh frame from the hardware
+            - lambda: 'id(espcam).request_image(camera::IDLE);'
+ #           - delay: 10ms # Yield to keep the background RTOS heal
+
+
+#script:
+  - id: fast_camera_loop
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return true;'
+          then:
+            - lambda: |-
+                // Wir nutzen direkt die native ESP-IDF API statt ESPHome-Funktionen
+                camera_fb_t *fb = esp_camera_fb_get();
+                
+                if (fb != nullptr) {
+                    // --- NATIVE VERARBEITUNG START ---
+                    // fb->buf enthält die unkomprimierten RGB565-Bytes (153.600 Bytes)
+                    // fb->len enthält die genaue Länge
+                    
+                    // Ein winziges Test-Auslesen, damit der Compiler es nicht wegbeschönigt
+                    uint8_t diagnostic = fb->buf[0]; 
+                    // --- NATIVE VERARBEITUNG ENDE ---
+                    
+                    // Framebuffer SOFORT wieder für die Hardware freigeben (wichtig!)
+                    esp_camera_fb_return(fb);
+                }
+            # Ein minimaler Yield für den FreeRTOS Scheduler, 
+            # der den CPU-Core nicht für feste Millisekunden schlafen legt
+            - delay: 0ms 
+
+
+# setup the esp32_camera components initial parameters
+# make sure to use the correct GPIO pins for your particular ESP32 model
+i2c:
+  - id: camera_i2c
+    sda: GPIO4
+    scl: GPIO5
+esp32_camera:
+  id: espcam
+  name: MyCamera
+  
+  internal: true 
+    
+  external_clock:
+    pin: GPIO15
+    frequency: 8MHz
+  i2c_id: camera_i2c
+  data_pins: [GPIO11, GPIO9, GPIO8, GPIO10, GPIO12, GPIO18, GPIO17, GPIO16]
+  vsync_pin: GPIO6
+  href_pin: GPIO7
+  pixel_clock_pin: GPIO13
+#  frame_buffer_location: DRAM
+  pixel_format: RGB565
+#  resolution: 640x480 #240x176 #320X240 #800x600 # my default
+  resolution: 320X240 # for testing, quicker screen reactions
+  jpeg_quality: 20 #15
+  # Frame Settings
+  max_framerate: 60fps
+  idle_framerate: 0fps
+#  idle_framerate: 0.05fps
+  frame_buffer_count: 2
+
+  # The following parameters can be changed on the fly after the camera is started
+  #  by calling update_camera_parameters() in lambda
+  vertical_flip: false
+  horizontal_mirror: true
+  # contrast, brightness, & saturation seem to have little to no effect when called using update_camera_parameters()
+  #  at least for my camera - esp32-s3-wroom-1 N8R8 from Freenove
+  contrast: 0
+  brightness: 0
+  saturation: 0
+  special_effect: NONE
+  # exposure settings
+  aec_mode: AUTO
+  aec2: False
+  ae_level: 0
+  aec_value: 300
+  # gain settings
+  agc_mode: AUTO
+  agc_gain_ceiling: 2X
+  agc_value: 0
+  # white balance setting
+  wb_mode: AUTO
+  # test pattern
+  test_pattern: False
+  on_image:
+    then:
+      - lambda: |-
+          // Process the raw RGB565 memory buffer directly
+          uint8_t *raw_buf = image.data;
+          size_t buf_len = image.length;
+
+          if (raw_buf != nullptr && buf_len > 0) {
+              // --- YOUR CUSTOM IMAGE PROCESSING GOES HERE ---
+              uint8_t diagnostic_byte = raw_buf[0];
+          } 
+
+switch:
+# on/off switch for Vertical Flip (my default = off, therefore: RESTORE_DEFAULT_OFF)
+  - platform: template
+    name: "Vertical Flip"
+    id: v_flip
+    icon: mdi:swap-vertical
+    restore_mode: RESTORE_DEFAULT_OFF
+    optimistic: false
+    turn_on_action:
+      lambda: |-
+        id(espcam).set_vertical_flip(true);
+        id(espcam_update) = true;
+    turn_off_action:
+      lambda: |-
+        id(espcam).set_vertical_flip(false);
+        id(espcam_update) = true;
+# on/off switch for Horizontal Mirror (my default = on, therefore: RESTORE_DEFAULT_ON)
+  - platform: template
+    name: "Horizontal Mirror"
+    id: h_mirror
+    icon: mdi:reflect-horizontal
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+    turn_on_action:
+      lambda: |-
+        id(espcam).set_horizontal_mirror(true);
+        id(espcam_update) = true;
+    turn_off_action:
+      lambda: |-
+        id(espcam).set_horizontal_mirror(false);
+        id(espcam_update) = true;
+
+# on/off switch for Auto Exposure 2 (my default = off, therefore: RESTORE_DEFAULT_OFF)
+  - platform: template
+    name: "Auto Exposure 2"
+    id: aec_2
+    icon: mdi:auto-fix
+    restore_mode: RESTORE_DEFAULT_OFF
+    optimistic: true
+    turn_on_action:
+      lambda: |-
+        id(espcam).set_aec2(true);
+        id(espcam_update) = true;
+    turn_off_action:
+      lambda: |-
+        id(espcam).set_aec2(false);
+        id(espcam_update) = true;
+
+
+select:
+# while you can change the frame_size (aka resolution) value while the camera is running, it will have no effect
+#  - see the note in the esp32_camera section above about the first 5 image parameters
+# I left this here in case it ever starts working
+#  - platform: template
+#    name: "Resolution"
+#    id: res
+#    options:
+#      - "160x120"
+#      - "176x144"
+#      - "240x176"
+#      - "320x240"
+#      - "400x296"
+#      - "640x480"
+#      - "800x600"
+#      - "1024x768"
+#      - "1280x1024"
+#      - "1600x1200"
+#    initial_option: "800x600"
+#    optimistic: True
+#    restore_value: True
+#    on_value:
+#      - lambda: |-
+#          id(espcam).set_frame_size((esphome::esp32_camera::ESP32CameraFrameSize)id(res).active_index().value());
+#          // some function to change the frame_size
+#          id(espcam_update) = true;
+# Option list for Special Effects
+  - platform: template
+    name: "Special Effects"
+    icon: mdi:filter
+    id: effect
+    options:
+      - "None"
+      - "Negative"
+      - "Grayscale"
+      - "Red Tint"
+      - "Green Tint"
+      - "Blue Tint"
+      - "Sepia"
+    initial_option: "None"
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_special_effect((esphome::esp32_camera::ESP32SpecialEffect)id(effect).active_index().value());
+        id(espcam_update) = true;
+# Option List for White Balance
+  - platform: template
+    name: "White Balance Mode"
+    id: wb
+    icon: mdi:white-balance-auto
+    options:
+      - "Auto"
+      - "Sunny"
+      - "Cloudy"
+      - "Office"
+      - "Home"
+    initial_option: "Auto"
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_wb_mode((esphome::esp32_camera::ESP32WhiteBalanceMode)id(wb).active_index().value());
+        id(espcam_update) = true;
+# Option list for AEC mode
+  - platform: template
+    name: "Auto Exposure Mode"
+    id: aec
+    icon: mdi:auto-fix
+    options:
+      - "Manual"
+      - "Auto"
+    initial_option: "Auto"
+    optimistic: True
+    on_value:
+      lambda: |-
+        // if you're looking closely, you may notice that AEC uses the Enum defined for Gain_control.
+        // this is how it is defined in the component source code since they both only have "auto" & "manual"
+        id(espcam).set_aec_mode((esphome::esp32_camera::ESP32GainControlMode)id(aec).active_index().value());
+        id(espcam_update) = true;
+# Option list for Gain Control Mode
+  - platform: template
+    name: "Gain Control Mode"
+    id: gc
+    icon: mdi:auto-fix
+    options:
+      - "Manual"
+      - "Auto"
+    initial_option: "Auto"
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_agc_mode((esphome::esp32_camera::ESP32GainControlMode)id(gc).active_index().value());
+        id(espcam_update) = true;
+# Option list for Gain Ceiling (apparently this is somewhat equivilant to ISO settings)
+  - platform: template
+    name: "Gain Ceiling"
+    id: g_ceiling
+    options:
+      - "2x"
+      - "4x"
+      - "8x"
+      - "16x"
+      - "32x"
+      - "64x"
+      - "128x"
+    initial_option: "128x"
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_agc_gain_ceiling((esphome::esp32_camera::ESP32AgcGainCeiling)id(g_ceiling).active_index().value());
+        id(espcam_update) = true;
+
+# configure number sliders for these parameters to make them available in HA
+number:
+# While the sliders for Contrast, Brightness, and Saturation all work and change the parameters of the sensor
+# they do not seem to make any difference to the image output
+  - platform: template
+    name: "Contrast"
+    id: contrast
+    icon: mdi:contrast-box
+    min_value: -2
+    max_value: 2
+    step: 1
+    initial_value: 0
+    mode: SLIDER
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_contrast(id(contrast).state);
+        id(espcam_update) = true;
+# Number Slider for Brightness
+  - platform: template
+    name: "Brightness"
+    id: brightness
+    icon: mdi:brightness-6
+    min_value: -2
+    max_value: 2
+    step: 1
+    initial_value: 0
+    mode: SLIDER
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_brightness(id(brightness).state);
+        id(espcam_update) = true;
+# Number Slider for Saturation
+  - platform: template
+    name: "Saturation"
+    id: saturation
+    icon: mdi:palette-outline
+    min_value: -2
+    max_value: 2
+    step: 1
+    initial_value: 0
+    mode: SLIDER
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_saturation(id(saturation).state);
+        id(espcam_update) = true;
+# Number Slider for Gain Value
+  - platform: template
+    name: "Gain Value"
+    id: g_value
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: 0
+    mode: SLIDER
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_agc_value(id(g_value).state);
+        id(espcam_update) = true;
+# Number slider for AE Level
+  - platform: template
+    name: "AE Level"
+    id: ae_level
+    min_value: -2
+    max_value: 2
+    step: 1
+    initial_value: 0
+    mode: SLIDER
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_ae_level(id(ae_level).state);
+        id(espcam_update) = true;
+# Number Slider for AE Value (step set to 10)
+# I tried using steps of 1 (too fine to control) and 100 (to coarse for the values) and settled on 10
+  - platform: template
+    name: "AE Value"
+    id: ae_value
+    min_value: 0
+    max_value: 1200
+    step: 10
+    initial_value: 1200
+    mode: SLIDER
+    optimistic: True
+    on_value:
+      lambda: |-
+        id(espcam).set_aec_value(id(ae_value).state);
+        id(espcam_update) = true;
+
+
+
+####-####camera_motion:
+####-####  id: my_motion
+####-####  camera_id: espcam
+####-####  block_size: 16          # Groesse der Vergleichsbloecke in Pixeln
+####-####  block_threshold: 30     # ab welcher Pixel-Aenderung ein Block als "veraendert" zaehlt
+####-####  motion_threshold: 10    # wie viele veraenderte Bloecke fuer "Bewegung" noetig sind
+####-####  check_every_n_frames: 3 # nur jeden n-ten Frame analysieren (CPU sparen)
+
