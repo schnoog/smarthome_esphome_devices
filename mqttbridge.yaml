@@ -1,0 +1,104 @@
+substitutions:
+  name: espnow-mqtt-bg
+  friendly_name: espnow-mqtt-bridge
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: False # this appends to 'name' NOT 'friendly_name'
+  # arduino.memory.type was key to getting PSRAM working for this board
+  platformio_options:
+    board_build.flash_mode: dio
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    version: recommended
+    sdkconfig_options:
+      CONFIG_ESP32_S3_BOX_BOARD: "y"
+   
+psram:
+  mode: octal
+  speed: 80MHz
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+api:
+  encryption:
+    key: "CiYA/PPrO+exKqNUzuUdrzBO3ih9OVX66DbKyo9cB0g="
+  reboot_timeout: 0s                        # Prevent reboot if HA connection lost
+
+mqtt:
+  id: espnowmqttbridge
+  broker: !secret mqtt_broker
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: true
+  discovery_retain: true
+  discovery_unique_id_generator: mac
+  discovery_object_id_generator: device_name
+  birth_message:
+  will_message:
+  shutdown_message:
+
+web_server:
+  port: 80
+
+
+binary_sensor:
+# shows the wifi status of the ESP32 Camera
+  - platform: status
+    name: "Status"
+
+
+
+button:
+# enable a Factory Reset button if you want one
+  - platform: factory_reset
+    id: factory_reset_button
+    name: "Factory reset"
+# enable a reboot button
+  - platform: restart
+    name: "Restart"
+# enable a 'safe mode' reboot button
+  - platform: safe_mode
+    name: "Safe Mode"
+
+ethernet:
+  type: W5500
+  clk_pin: GPIO13
+  mosi_pin: GPIO11
+  miso_pin: GPIO12
+  cs_pin: GPIO14
+  interrupt_pin: GPIO10   # oder polling_interval statt interrupt_pin
+  reset_pin: GPIO9
+
+
+# --- ESP-NOW Empfang ---
+espnow:
+  channel: 1              # muss zu deinen Sendern passen
+  auto_add_peer: true      # jeden Sender automatisch als Peer akzeptieren
+  max_payload_size: 250    # bei Bedarf bis 1470 (ESP-NOW v2), wenn Sender das unterstützen
+
+  on_receive:
+    - lambda: |-
+        char src_mac[MAC_ADDRESS_PRETTY_BUFFER_SIZE];
+        format_mac_addr_upper(info.src_addr, src_mac);
+        std::string topic = std::string("espnow/") + src_mac;
+        std::string payload(reinterpret_cast<const char*>(data), size);
+        id(espnowmqttbridge).publish(topic, payload);
+
+  on_broadcast:
+    - lambda: |-
+        char hex[512];
+        format_hex_pretty_to(hex, data, size);
+        id(espnowmqttbridge).publish("espnow/broadcast", hex);

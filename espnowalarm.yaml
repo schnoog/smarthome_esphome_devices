@@ -1,0 +1,44 @@
+esphome:
+  name: espnowalarm
+
+esp32:
+  board: lolin_s3
+  framework:
+    type: esp-idf
+
+logger:
+
+
+
+globals:
+  - id: counter
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+espnow:
+  channel: 1                    # MUSS mit dem Gateway übereinstimmen
+  peers:
+    - D8:3B:DA:AA:9A:A8         # MAC-Adresse des Gateways (siehe unten)
+
+interval:
+  - interval: 10s
+    then:
+      - espnow.send:
+          address: D8:3B:DA:AA:9A:A8
+          data: "1"
+      - delay: 5s
+      - espnow.send:
+          address: D8:3B:DA:AA:9A:A8
+          data: "0"      
+
+
+deep_sleep:
+  run_duration: 20s
+  wakeup_pin:
+    - pin:
+        number: GPIO7
+        mode: INPUT_PULLDOWN
+  on_wake:
+    - lambda: |-
+        ESP_LOGD("wakeup", "Wakeup cause: %d", (int) cause);

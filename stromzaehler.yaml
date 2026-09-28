@@ -1,0 +1,215 @@
+esphome:
+  name: stromzaehler
+  friendly_name: Stromzähler
+
+esp32:
+  variant: esp32s3
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+api:
+  encryption:
+    key: "CiYA/PPrO+exKqNUzuUdrzBO3ih9OVX66DbKyo9cB0g="
+  reboot_timeout: 0s                        # Prevent reboot if HA connection lost
+
+
+# Add the credentials to connect to your wifi network
+wifi:
+  id: wifi_component
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+
+
+
+
+
+
+mqtt:
+  id: consumption
+  broker: !secret mqtt_broker
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: true
+  discovery_retain: true
+  discovery_unique_id_generator: mac
+  discovery_object_id_generator: device_name
+  client_id: "consumption"
+  topic_prefix: "power"
+  birth_message:
+    topic: "power/tele/consumption/LWT"
+    payload: "Online"
+    retain: true
+
+  will_message:
+    topic: "power/tele/consumption/LWT"
+    payload: "Offline"
+    retain: true
+
+time:
+  - platform: sntp
+    id: esptime
+    timezone: Europe/Berlin
+    
+
+# Weboberfläche
+web_server:
+  port: 80
+
+# Logging
+logger:
+  baud_rate: 0
+
+# UART zum optischen SML-Lesekopf
+uart:
+  id: sml_uart
+  rx_pin: GPIO16
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_buffer_size: 4096
+
+# SML
+sml:
+  id: sml_meter
+  uart_id: sml_uart
+  on_data:
+    - if:
+        condition:
+          lambda: return valid;      # nur bei gültigem Telegramm (CRC ok)
+        then:
+          - script.execute: mqtt_senden
+
+# ==========================
+# SML ZÄHLERWERTE
+# ==========================
+
+sensor:
+
+  # Positive Wirkenergie - tariflos
+  - platform: sml
+    name: "Pos Wirkenergie tariflos"
+    id: pos_wirk_tariflos
+    sml_id: sml_meter
+    obis_code: "1-0:1.8.0"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.001
+
+  # Positive Wirkenergie - Tarif 1
+  - platform: sml
+    name: "Pos Wirkenergie Tarif 1"
+    id: pos_wirk_tarif_1
+    sml_id: sml_meter
+    obis_code: "1-0:1.8.1"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.001
+
+  # Positive Wirkenergie - Tarif 2
+  - platform: sml
+    name: "Pos Wirkenergie Tarif 2"
+    id: pos_wirk_tarif_2
+    sml_id: sml_meter
+    obis_code: "1-0:1.8.2"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.001
+
+  # Negative Wirkenergie - tariflos
+  - platform: sml
+    name: "Neg Wirkenergie tariflos"
+    id: neg_wirk_tariflos
+    sml_id: sml_meter
+    obis_code: "1-0:2.8.0"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.001
+
+  # Negative Wirkenergie - Tarif 1
+  - platform: sml
+    name: "Neg Wirkenergie Tarif 1"
+    id: neg_wirk_tarif_1
+    sml_id: sml_meter
+    obis_code: "1-0:2.8.1"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.001
+
+  # Negative Wirkenergie - Tarif 2
+  - platform: sml
+    name: "Neg Wirkenergie Tarif 2"
+    id: neg_wirk_tarif_2
+    sml_id: sml_meter
+    obis_code: "1-0:2.8.2"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.001
+
+  # Momentane Wirkleistung
+  - platform: sml
+    name: "Momentanwirkleistung"
+    id: momentanwirkleistung
+    sml_id: sml_meter
+    obis_code: "1-0:16.7.0"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+
+
+# ==========================
+# ZÄHLERNUMMER
+# ==========================
+
+text_sensor:
+
+  - platform: sml
+    name: "Zählernummer"
+    id: zaehlernummer
+    sml_id: sml_meter
+    obis_code: "1-0:96.1.0"
+    format: text
+
+
+script:
+  - id: mqtt_senden
+    mode: single
+    then:
+      - delay: 50ms                  # warten, bis die Sensoren aktualisiert sind
+      - mqtt.publish_json:
+          topic: "power/tele/consumption/SENSOR"
+          payload: |-
+            root["Time"] = id(esptime).now().strftime("%Y-%m-%dT%H:%M:%S");
+            root[""]["pos_wirk_tariflos"] = id(pos_wirk_tariflos).state;
+            root[""]["pos_wirk_tarif_1"] = id(pos_wirk_tarif_1).state;
+            root[""]["pos_wirk_tarif_2"] = id(pos_wirk_tarif_2).state;
+            root[""]["momentanwirkleistung"] = id(momentanwirkleistung).state;
+

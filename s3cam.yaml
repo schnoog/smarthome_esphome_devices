@@ -2,6 +2,12 @@ substitutions:
   name: esphome-cams3
   friendly_name: NewESP32-S3-Cam
 
+  # --- IR-Automatik: Werte ggf. anpassen (Lux-Werte deines LTR308 beobachten!) ---
+  ir_on_lux: "5.0"          # darunter  -> IR-LEDs AN
+  ir_off_lux: "20.0"        # darueber  -> IR-LEDs AUS (muss deutlich hoeher sein als ir_on_lux = Hysterese)
+  ir_settle_time: 3s        # Zeit, in der die Kamera nach dem Umschalten ihre Belichtung anpasst (Bewegung wird ignoriert)
+  ir_lockout_time: 30s      # Sperrzeit nach dem Umschalten, bevor die Automatik erneut schalten darf
+
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
@@ -104,22 +110,30 @@ binary_sensor:
 # shows the wifi status of the ESP32 Camera
   - platform: status
     name: "Status"
-  - platform: camera_motion
-    camera_motion_id: my_motion
-    device_class: motion
-    name: "Camera Motion"
-    on_press:
-      then:
-        - logger.log: "Bewegung erkannt!"
-        - mqtt.publish:
-            topic: "motion/detection"
-            payload: '1'
-    on_release:
-      then:
-        - logger.log: "Es ist wieder ruhig!"
-        - mqtt.publish:
-            topic: "motion/detection"
-            payload: '0'
+#-#-#-#  - platform: camera_motion
+#-#-#-#    camera_motion_id: my_motion
+#-#-#-#    device_class: motion
+#-#-#-#    name: "Camera Motion"
+    # NEU: Waehrend die Kamera nach dem IR-Umschalten ihre Belichtung anpasst,
+    # aendert sich das ganze Bild -> das waere sonst eine Fehlausloesung.
+#-#-#-#    filters:
+#-#-#-#      - lambda: |-
+#-#-#-#          if (id(ir_settling)) return {};
+#-#-#-#          return x;
+#-#-#-#    on_press:
+#-#-#-#      then:
+#-#-#-#        - logger.log: "Bewegung erkannt!"
+#-#-#-#        - mqtt.publish:
+#-#-#-#            topic: "motion/detection"
+#-#-#-#            payload: '1'
+#-#-#-#    on_release:
+#-#-#-#      then:
+#-#-#-#        - logger.log: "Es ist wieder ruhig!"
+#-#-#-#        - mqtt.publish:
+#-#-#-#            topic: "motion/detection"
+#-#-#-#            payload: '0'
+
+
 #        - lambda: |-
 #            id(espcam).set_frame_size((esphome::esp32_camera::ESP32CameraFrameSize)FRAMESIZE_SXGA);
 #            // some function to change the frame_size
@@ -133,11 +147,47 @@ binary_sensor:
 sensor:
 # ltr308
   - platform: ltr308
+    id: ambient_light                 # NEU
     i2c_id: bus_a
     name: "Umgebungslicht"
     gain: 3x
     resolution: 100ms
     update_interval: 10s
+    # NEU: Ausreisser (Scheinwerfer, Schatten) glaetten, damit die IR-LEDs nicht flackern
+    filters:
+      - sliding_window_moving_average:
+          window_size: 3
+          send_every: 1
+    # NEU: Daemmerungsschalter mit Hysterese (bewusst on_value statt on_value_range,
+    # damit ein waehrend der Sperrzeit "verpasster" Wechsel beim naechsten Messwert nachgeholt wird)
+    on_value:
+      then:
+        # dunkel genug -> IR an
+        - if:
+            condition:
+              and:
+                - switch.is_on: auto_ir
+                - lambda: 'return !id(ir_lockout);'
+                - light.is_off: ir_light
+                - lambda: 'return x < ${ir_on_lux};'
+            then:
+              - logger.log:
+                  format: "Dunkel (%.1f lx) -> IR-LEDs an"
+                  args: ['x']
+              - light.turn_on: ir_light
+        # hell genug -> IR aus
+        - if:
+            condition:
+              and:
+                - switch.is_on: auto_ir
+                - lambda: 'return !id(ir_lockout);'
+                - light.is_on: ir_light
+                - lambda: 'return x > ${ir_off_lux};'
+            then:
+              - logger.log:
+                  format: "Hell (%.1f lx) -> IR-LEDs aus"
+                  args: ['x']
+              - light.turn_off: ir_light
 # will show the Uptime for the card if you're interested
   - platform: uptime
     name: 'Uptime'
@@ -185,6 +235,44 @@ globals:
   - id: espcam_update
     type: bool
     initial_value: 'false'
+# NEU: true, solange die Kamera nach einem IR-Wechsel "einpendelt" -> Motion wird ignoriert
+  - id: ir_settling
+    type: bool
+    initial_value: 'false'
+# NEU: true waehrend der Sperrzeit nach einem IR-Wechsel -> Automatik schaltet nicht erneut
+  - id: ir_lockout
+    type: bool
+    initial_value: 'false'
+
+# NEU: wird bei JEDEM Umschalten der IR-LEDs ausgeloest (Automatik und manuell)
+script:
+  - id: ir_transition
+    mode: restart
+    then:
+      - globals.set:
+          id: ir_settling
+          value: 'true'
+      - globals.set:
+          id: ir_lockout
+          value: 'true'
+      - logger.log: "IR umgeschaltet -> Motion Detection wird kurz ausgesetzt"
+      # Kamera Zeit geben, die Belichtung (AEC/AGC) an das neue Licht anzupassen
+      - delay: ${ir_settle_time}
+      # --- Motion-Detection "neu starten" ---------------------------------------
+      # Falls deine camera_motion-Komponente eine Methode zum Zuruecksetzen des
+      # Referenzbildes hat, hier aufrufen (Name an deine Komponente anpassen), z.B.:
+      # - lambda: |-
+      #     id(my_motion).reset_reference();
+      # Ohne so eine Methode sorgt der Filter am binary_sensor oben dafuer, dass
+      # in der Einpendelzeit keine Bewegung gemeldet wird.
+      # ---------------------------------------------------------------------------
+      - globals.set:
+          id: ir_settling
+          value: 'false'
+      - delay: ${ir_lockout_time}
+      - globals.set:
+          id: ir_lockout
+          value: 'false'
 
 external_components:
   - source:
@@ -192,13 +280,13 @@ external_components:
       path: external_components
 
 
-camera_motion:
-  id: my_motion
-  camera_id: espcam
-  block_size: 16          # Groesse der Vergleichsbloecke in Pixeln
-  block_threshold: 30     #def:30 # ab welcher Pixel-Aenderung ein Block als "veraendert" zaehlt
-  motion_threshold: 40    #def:20 # wie viele veraenderte Bloecke fuer "Bewegung" noetig sind
-  check_interval: 1s
+#-#-#-#camera_motion:
+#-#-#-#  id: my_motion
+#-#-#-#  camera_id: espcam
+#-#-#-#  block_size: 40          # Groesse der Vergleichsbloecke in Pixeln
+#-#-#-#  block_threshold: 30     #def:30 # ab welcher Pixel-Aenderung ein Block als "veraendert" zaehlt
+#-#-#-#  motion_threshold: 40    #def:20 # wie viele veraenderte Bloecke fuer "Bewegung" noetig sind
+#-#-#-#  check_interval: 1s
 #  check_every_n_frames: 10 # nur jeden n-ten Frame analysieren (CPU sparen)
 
 i2c:
@@ -228,7 +316,7 @@ esp32_camera:
 #  frame_buffer_location: DRAM
 #  pixel_format: RGB565
 #  resolution: 640x480 #240x176 #320X240 #800x600 # my default
-  resolution: 320X240 # for testing, quicker screen reactions
+  resolution: 800x600 # for testing, quicker screen reactions
   jpeg_quality: 12 #15
   max_framerate: 60fps
   idle_framerate: 1fps
@@ -290,8 +378,14 @@ light:
     output: led_status
   - platform: binary                  # IR illumination
     name: "IR Night Vision"
+    id: ir_light                      # NEU
     output: ir_led
     restore_mode: RESTORE_DEFAULT_OFF # Stay off after reboot
+    # NEU: jedes Umschalten (Automatik oder manuell in HA) loest die Motion-Behandlung aus
+    on_turn_on:
+      - script.execute: ir_transition
+    on_turn_off:
+      - script.execute: ir_transition
 
 
 
@@ -364,6 +458,14 @@ media_player:
 
 
 switch:
+  # NEU: IR-Automatik in Home Assistant ein-/ausschaltbar
+  - platform: template
+    name: "IR Automatik"
+    id: auto_ir
+    icon: mdi:weather-night
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
   - platform: template
     name: "Auto Exposure 2"
     id: aec_2
@@ -556,6 +658,3 @@ number:
       lambda: |-
         id(espcam).set_aec_value(id(ae_value).state);
         id(espcam_update) = true;
-
-
-
