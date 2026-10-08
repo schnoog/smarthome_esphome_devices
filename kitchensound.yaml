@@ -16,6 +16,9 @@ substitutions:
   # display_offset_height: "0"
   media_sample_rate: 44100
 
+  ## Anzahl Radiosender (muss zu den roller-Optionen und der Liste in radio_play passen)
+  radio_count: "7"
+
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
@@ -110,19 +113,54 @@ media_source:
     task_stack_in_psram: true
 
 
+# ============================================================
+# Senderauswahl
+# ============================================================
+
+globals:
+  - id: radio_menu_open
+    type: bool
+    initial_value: 'false'
+  - id: radio_index
+    type: int
+    initial_value: '0'
+
 binary_sensor:
+  # MODE: kurz = Senderliste öffnen/schließen, doppelt = gewählten Sender starten
   - platform: gpio
     pin:
       number: 13
       mode:
         input: true
         pullup: true
+      inverted: true
     name: radiobutton_mode
     filters:
       - delayed_on: 50ms
-    on_press:
-      - logger.log: "Radiobutton: MODE gedrückt"
+    on_multi_click:
+      # Doppelklick
+      - timing:
+          - ON for at most 400ms
+          - OFF for at most 400ms
+          - ON for at most 400ms
+          - OFF for at least 50ms
+        then:
+          - logger.log: "Radiobutton: MODE doppelt"
+          - if:
+              condition:
+                lambda: 'return id(radio_menu_open);'
+              then:
+                - script.execute: radio_play
+      # Einfacher Klick
+      - timing:
+          - ON for at most 400ms
+          - OFF for at least 400ms
+        then:
+          - logger.log: "Radiobutton: MODE kurz"
+          - lambda: 'id(radio_menu_open) = !id(radio_menu_open);'
+          - script.execute: update_page
 
+  # UP/DOWN: in der Senderliste blättern (mit Umlauf am Listenende)
   - platform: gpio
     pin:
       number: 14
@@ -134,6 +172,15 @@ binary_sensor:
       - delayed_on: 50ms
     on_press:
       - logger.log: "Radiobutton: UP gedrückt"
+      - if:
+          condition:
+            lambda: 'return id(radio_menu_open);'
+          then:
+            - lambda: 'id(radio_index) = (id(radio_index) + ${radio_count} - 1) % ${radio_count};'
+            - lvgl.roller.update:
+                id: radio_roller
+                selected_index: !lambda 'return id(radio_index);'
+                animated: true
 
   - platform: gpio
     pin:
@@ -146,6 +193,15 @@ binary_sensor:
       - delayed_on: 50ms
     on_press:
       - logger.log: "Radiobutton: DOWN gedrückt"
+      - if:
+          condition:
+            lambda: 'return id(radio_menu_open);'
+          then:
+            - lambda: 'id(radio_index) = (id(radio_index) + 1) % ${radio_count};'
+            - lvgl.roller.update:
+                id: radio_roller
+                selected_index: !lambda 'return id(radio_index);'
+                animated: true
 
   - platform: gpio
     pin:
@@ -245,22 +301,52 @@ script:
       - delay: 2s
       - script.execute: update_page
 
-  # Zentrale Seitenwahl: Offline (gemutet) > Leerlauf > Wiedergabe
+  # Zentrale Seitenwahl: Senderliste > Offline (gemutet) > Leerlauf > Wiedergabe
   - id: update_page
     then:
       - if:
           condition:
-            binary_sensor.is_on: kitchensound_muted
+            lambda: 'return id(radio_menu_open);'
           then:
-            - lvgl.page.show: offline_page
+            - lvgl.page.show: radio_page
           else:
             - if:
                 condition:
-                  media_player.is_idle: soundbox_player
+                  binary_sensor.is_on: kitchensound_muted
                 then:
-                  - lvgl.page.show: idle_page
+                  - lvgl.page.show: offline_page
                 else:
-                  - lvgl.page.show: playing_page
+                  - if:
+                      condition:
+                        media_player.is_idle: soundbox_player
+                      then:
+                        - lvgl.page.show: idle_page
+                      else:
+                        - lvgl.page.show: playing_page
+
+  # Gewählten Sender starten und Liste schließen.
+  # Reihenfolge muss zu den roller-Optionen auf radio_page passen!
+  - id: radio_play
+    then:
+      - homeassistant.action:
+          action: script.turn_on
+          data:
+            entity_id: !lambda |-
+              static const char *const scripts[] = {
+                "script.ma_radio_badenfm_all_duplizieren",  // BadenFM
+                "script.ma_radio_badenfm_all",              // BadenFM Deutsch
+                "script.ma_radio_oldieantenne_all",         // Oldie Antenne
+                "script.ma_radio_seefunk_all",              // Radio Seefunk
+                "script.ma_radio_swr1_all",                 // SWR1
+                "script.ma_radio_swr3_all",                 // SWR3
+                "script.ma_radio_swr4_all",                 // SWR4
+              };
+              ESP_LOGI("radio", "Starte %s", scripts[id(radio_index)]);
+              return std::string(scripts[id(radio_index)]);
+      - globals.set:
+          id: radio_menu_open
+          value: 'false'
+      - script.execute: update_page
 
 # ============================================================
 # Song-Metadaten von Sendspin
@@ -488,3 +574,38 @@ lvgl:
             y: 56
             text: "Offline"
             text_color: 0x808080
+
+    # Senderliste: UP/DOWN = wählen, MODE doppelt = starten, MODE kurz = schließen
+    - id: radio_page
+      bg_color: 0x000000
+      scrollable: false
+      widgets:
+        - label:
+            align: TOP_MID
+            y: 8
+            text: "Radiosender"
+            text_font: font_title
+            text_color: 0xFFFF00
+
+        - roller:
+            id: radio_roller
+            align: TOP_MID
+            y: 42
+            width: 220
+            visible_row_count: 5
+            mode: NORMAL
+            options:
+              - BadenFM
+              - BadenFM Deutsch
+              - Oldie Antenne
+              - Radio Seefunk
+              - SWR1
+              - SWR3
+              - SWR4
+            bg_color: 0x000000
+            border_width: 0
+            text_color: 0x808080
+            text_align: CENTER
+            selected:
+              bg_color: 0x333300
+              text_color: 0xFFFF00
