@@ -1,0 +1,490 @@
+substitutions:
+  name: kitchensound
+  friendly_name: Soundbox Sendspin Kitchensound
+  ## Display 240x240, um 90 Grad gedreht
+  display_swap_xy: "true"
+  display_mirror_x: "true"
+  display_mirror_y: "false"
+  display_offset_width: "0"
+  display_offset_height: "0"
+
+  ## Falls das Bild falsch herum steht (270 Grad), stattdessen:
+  # display_swap_xy: "true"
+  # display_mirror_x: "false"
+  # display_mirror_y: "true"
+  # display_offset_width: "80"
+  # display_offset_height: "0"
+  media_sample_rate: 44100
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.9.0
+  project:
+    name: "soundbox.sendspin"
+    version: "1.2"
+
+esp32:
+  board: lolin_s3
+  # flash_size: 16MB      # LOLIN S3 (N16R8) – beim S3 Mini 4MB!
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal             # LOLIN S3 / S3 Pro = N16R8 -> octal; S3 Mini = quad
+  speed: 80MHz
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none   # wichtig für unterbrechungsfreies Streaming
+
+logger:
+  level: DEBUG
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+web_server:
+  port: 80
+
+# ============================================================
+# I2S
+# ============================================================
+
+i2s_audio:
+  - id: i2s_bus
+    i2s_bclk_pin: GPIO3
+    i2s_lrclk_pin: GPIO4
+
+speaker:
+  - platform: i2s_audio
+    id: i2s_speaker
+    i2s_audio_id: i2s_bus
+    i2s_dout_pin: GPIO5
+    dac_type: external
+    channel: mono
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    buffer_duration: 100ms
+
+  - platform: mixer
+    id: audio_mixer
+    output_speaker: i2s_speaker
+    source_speakers:
+      - id: media_mixer_input
+      - id: announcement_mixer_input
+
+  - platform: resampler
+    id: media_resampler
+    output_speaker: media_mixer_input
+
+  - platform: resampler
+    id: announcement_resampler
+    output_speaker: announcement_mixer_input
+
+# ============================================================
+# Sendspin
+# ============================================================
+
+sendspin:
+  id: sendspin_hub
+
+media_source:
+  - platform: sendspin
+    id: sendspin_source
+    task_stack_in_psram: true
+
+  - platform: audio_http
+    id: http_media_source
+    task_stack_in_psram: true
+
+  - platform: audio_http
+    id: http_announcement_source
+    task_stack_in_psram: true
+
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: 13
+      mode:
+        input: true
+        pullup: true
+    name: radiobutton_mode
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Radiobutton: MODE gedrückt"
+
+  - platform: gpio
+    pin:
+      number: 14
+      mode:
+        input: true
+        pullup: true
+    name: radiobutton_up
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Radiobutton: UP gedrückt"
+
+  - platform: gpio
+    pin:
+      number: 21
+      mode:
+        input: true
+        pullup: true
+    name: radiobutton_down
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Radiobutton: DOWN gedrückt"
+
+  - platform: gpio
+    pin:
+      number: 47
+      mode:
+        input: true
+        pullup: true
+    name: radiobutton_voldown
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Radiobutton: VOLUME DOWN gedrückt"
+      - homeassistant.action:
+          action: script.ma_kueche_vol_down
+
+  - platform: gpio
+    pin:
+      number: 48
+      mode:
+        input: true
+        pullup: true
+    name: radiobutton_volup
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Radiobutton: VOLUME UP gedrückt"
+      - homeassistant.action:
+          action: script.ma_kueche_vol_up
+
+  - platform: gpio
+    pin:
+      number: 45
+      mode:
+        input: true
+        pullup: true
+    name: radiobutton_radio
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Radiobutton: RADIO gedrückt"
+      - if:
+          condition:
+            binary_sensor.is_on: kitchensound_muted
+          then:
+            - homeassistant.action:
+                action: script.ma_kueche_unmute
+            - logger.log: "Kitchensound: UNMUTE"
+          else:
+            - homeassistant.action:
+                action: script.ma_kueche_mute
+            - logger.log: "Kitchensound: MUTE"
+
+  # Mute-Status aus HA = "ausgeschaltet" -> Offline-Seite
+  - platform: homeassistant
+    id: kitchensound_muted
+    entity_id: media_player.soundbox_sendspin_kitchensound_player
+    attribute: is_volume_muted
+    on_state:
+      - script.execute: update_page
+
+
+# ============================================================
+# Media Player
+# ============================================================
+
+media_player:
+  - platform: speaker_source
+    id: soundbox_player
+    name: "Player"
+    volume_initial: 40%
+    media_pipeline:
+      speaker: media_resampler
+      format: FLAC
+      num_channels: 1
+      sources:
+        - sendspin_source
+        - http_media_source
+    announcement_pipeline:
+      speaker: announcement_resampler
+      format: FLAC
+      num_channels: 1
+      sources:
+        - http_announcement_source
+
+    # Seitenwechsel je nach Wiedergabestatus (Offline hat Vorrang, siehe update_page)
+    on_play:
+      - script.stop: idle_debounce
+      - script.execute: update_page
+    on_idle:
+      - script.execute: idle_debounce
+
+script:
+  # Kurz warten, damit beim Titelwechsel nicht kurz die Leerlauf-Seite aufblitzt
+  - id: idle_debounce
+    mode: restart
+    then:
+      - delay: 2s
+      - script.execute: update_page
+
+  # Zentrale Seitenwahl: Offline (gemutet) > Leerlauf > Wiedergabe
+  - id: update_page
+    then:
+      - if:
+          condition:
+            binary_sensor.is_on: kitchensound_muted
+          then:
+            - lvgl.page.show: offline_page
+          else:
+            - if:
+                condition:
+                  media_player.is_idle: soundbox_player
+                then:
+                  - lvgl.page.show: idle_page
+                else:
+                  - lvgl.page.show: playing_page
+
+# ============================================================
+# Song-Metadaten von Sendspin
+# ============================================================
+
+text_sensor:
+  - platform: sendspin
+    id: song_title
+    type: title
+    on_value:
+      - lvgl.label.update:
+          id: title_label
+          text: !lambda 'return x.empty() ? std::string(" ") : x;'
+
+  - platform: sendspin
+    id: song_artist
+    type: artist
+    on_value:
+      - lvgl.label.update:
+          id: artist_label
+          text: !lambda 'return x.empty() ? std::string(" ") : x;'
+
+  - platform: sendspin
+    id: song_album
+    type: album
+    on_value:
+      - lvgl.label.update:
+          id: album_label
+          text: !lambda 'return x.empty() ? std::string(" ") : x;'
+
+# ============================================================
+# Album-Cover von Sendspin
+# ============================================================
+
+image:
+  - platform: sendspin
+    id: album_slot
+    format: JPEG
+    type: RGB565
+    resize: 140x140
+    source: album
+    current_image:
+      id: album_art
+    on_image_display:
+      - lvgl.image.update:
+          id: cover_widget
+          src: album_art
+      - lvgl.widget.show: cover_widget
+    on_image_clear:
+      - lvgl.widget.hide: cover_widget
+    on_image_error:
+      - lvgl.widget.hide: cover_widget
+
+# ============================================================
+# Schriften
+# ============================================================
+
+font:
+  - file:
+      type: gfonts
+      family: Noto Sans
+      weight: 700
+    id: font_title
+    size: 20
+    glyphsets:
+      - GF_Latin_Core
+
+  - file:
+      type: gfonts
+      family: Noto Sans
+      weight: 400
+    id: font_text
+    size: 18
+    glyphsets:
+      - GF_Latin_Core
+
+  - file: https://github.com/Templarian/MaterialDesign-Webfont/raw/refs/heads/master/fonts/materialdesignicons-webfont.ttf
+    id: font_icon
+    size: 96
+    glyphs:
+      - "\U000F075A"   # mdi:music
+      - "\U000F0425"   # mdi:power
+
+# ============================================================
+# Display
+# ============================================================
+
+spi:
+  - id: spi_bus
+    clk_pin: 7
+    mosi_pin: 8
+
+display:
+  - platform: mipi_spi
+    id: main_display
+    spi_id: spi_bus
+    model: ST7789V
+    data_rate: 40MHz
+    spi_mode: MODE3
+    dc_pin: 10
+    reset_pin: 9
+    dimensions:
+      width: 240
+      height: 240
+      offset_width: ${display_offset_width}
+      offset_height: ${display_offset_height}
+    transform:
+      swap_xy: ${display_swap_xy}
+      mirror_x: ${display_mirror_x}
+      mirror_y: ${display_mirror_y}
+    invert_colors: true
+    auto_clear_enabled: false
+    update_interval: never
+
+# Optional: Hintergrundbeleuchtung, falls der BL-Pin am ESP hängt
+# (sonst BL einfach fest auf 3,3 V legen und diesen Block weglassen)
+# output:
+#   - platform: ledc
+#     pin: GPIO11
+#     id: backlight_output
+#
+# light:
+#   - platform: monochromatic
+#     id: backlight
+#     name: "Display"
+#     output: backlight_output
+#     restore_mode: RESTORE_DEFAULT_ON
+
+# ============================================================
+# LVGL-Oberfläche
+# ============================================================
+
+lvgl:
+  displays:
+    - main_display
+  buffer_size: 25%
+  color_depth: 16
+  bg_color: 0x000000
+  default_font: font_text
+
+  pages:
+    # Leerlauf: nur ein Symbol und ein Hinweis
+    - id: idle_page
+      bg_color: 0x000000
+      scrollable: false
+      widgets:
+        - label:
+            align: CENTER
+            y: -18
+            text: "\U000F075A"
+            text_font: font_icon
+            text_color: 0x404040
+
+        - label:
+            align: CENTER
+            y: 56
+            text: "Keine Wiedergabe"
+            text_color: 0x808080
+
+    # Wiedergabe: Cover oben, darunter Titel / Interpret / Album
+    - id: playing_page
+      bg_color: 0x000000
+      scrollable: false
+      widgets:
+        # Platzhalter-Symbol, liegt hinter dem Cover
+        - label:
+            align: TOP_MID
+            y: 18
+            text: "\U000F075A"
+            text_font: font_icon
+            text_color: 0x404040
+
+        - image:
+            id: cover_widget
+            align: TOP_MID
+            y: 6
+            src: album_art
+            hidden: true
+
+        - label:
+            id: title_label
+            align: TOP_MID
+            y: 150
+            width: 232
+            text: " "
+            text_font: font_title
+            text_color: 0xFFFF00
+            text_align: CENTER
+            long_mode: SCROLL_CIRCULAR
+
+        - label:
+            id: artist_label
+            align: TOP_MID
+            y: 179
+            width: 232
+            text: " "
+            text_color: 0xFFFFFF
+            text_align: CENTER
+            long_mode: SCROLL_CIRCULAR
+
+        - label:
+            id: album_label
+            align: TOP_MID
+            y: 207
+            width: 232
+            text: " "
+            text_color: 0xA0A0A0
+            text_align: CENTER
+            long_mode: SCROLL_CIRCULAR
+
+    # Offline (= gemutet): Power-Symbol und Hinweis
+    - id: offline_page
+      bg_color: 0x000000
+      scrollable: false
+      widgets:
+        - label:
+            align: CENTER
+            y: -18
+            text: "\U000F0425"
+            text_font: font_icon
+            text_color: 0x404040
+
+        - label:
+            align: CENTER
+            y: 56
+            text: "Offline"
+            text_color: 0x808080
